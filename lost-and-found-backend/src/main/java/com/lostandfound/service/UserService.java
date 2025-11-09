@@ -76,10 +76,10 @@ public class UserService {
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        
+
         // Generate access token
         String accessToken = tokenProvider.generateToken(authentication);
-        
+
         // Generate refresh token
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(
                 user.getId(), ipAddress, userAgent
@@ -161,6 +161,17 @@ public class UserService {
     }
 
     @Transactional
+    public void logoutUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BadRequestException("User not found"));
+
+        // Delete all refresh tokens for this user
+        refreshTokenService.revokeAllUserTokens(userId);
+
+        logger.info("User logged out successfully: {}", user.getEmail());
+    }
+
+    @Transactional
     public TokenRefreshResponse refreshToken(String refreshTokenStr) {
         return refreshTokenService.findByToken(refreshTokenStr)
                 .map(refreshTokenService::verifyExpiration)
@@ -170,9 +181,9 @@ public class UserService {
                     Authentication auth = new UsernamePasswordAuthenticationToken(
                             userPrincipal, null, userPrincipal.getAuthorities()
                     );
-                    
+
                     String newAccessToken = tokenProvider.generateToken(auth);
-                    
+
                     return TokenRefreshResponse.builder()
                             .success(true)
                             .message("Token refreshed successfully")

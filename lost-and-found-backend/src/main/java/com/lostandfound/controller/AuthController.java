@@ -28,13 +28,7 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> registerUser(
             @Valid @RequestBody RegisterRequest request,
-            HttpServletRequest httpRequest,
-            @AuthenticationPrincipal UserPrincipal currentUser) {
-
-        // Check if user is already authenticated
-        if (currentUser != null) {
-            throw new BadRequestException("You are already logged in. Please logout first.");
-        }
+            HttpServletRequest httpRequest) {
 
         String ipAddress = getClientIP(httpRequest);
         String userAgent = httpRequest.getHeader("User-Agent");
@@ -46,13 +40,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> loginUser(
             @Valid @RequestBody LoginRequest request,
-            HttpServletRequest httpRequest,
-            @AuthenticationPrincipal UserPrincipal currentUser) {
-
-        // Check if user is already authenticated
-        if (currentUser != null) {
-            throw new BadRequestException("You are already logged in as " + currentUser.getEmail());
-        }
+            HttpServletRequest httpRequest) {
 
         String ipAddress = getClientIP(httpRequest);
         String userAgent = httpRequest.getHeader("User-Agent");
