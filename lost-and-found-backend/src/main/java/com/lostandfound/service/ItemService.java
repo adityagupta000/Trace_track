@@ -211,6 +211,40 @@ public class ItemService {
         logger.info("User {} deleted item: {}", user.getEmail(), itemId);
     }
 
+    @Transactional
+    public void deleteItemAsAdmin(Long itemId, UserPrincipal currentUser) {
+        if (currentUser == null) {
+            throw new UnauthorizedException("You must be logged in");
+        }
+
+        User user = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", currentUser.getId()));
+
+        // Verify user is admin
+        if (user.getRole() != User.Role.ADMIN) {
+            throw new UnauthorizedException("Only admins can perform this action");
+        }
+
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Item", "id", itemId));
+
+        // Delete related claims
+        claimRepository.deleteAll(claimRepository.findByItem(item));
+
+        // Delete related messages
+        messageRepository.deleteAll(messageRepository.findAll().stream()
+                .filter(m -> m.getItem().getId().equals(itemId))
+                .collect(Collectors.toList()));
+
+        // Delete image file if exists
+        if (item.getImage() != null) {
+            fileStorageService.deleteFile(item.getImage());
+        }
+
+        itemRepository.delete(item);
+        logger.info("Admin {} deleted item: {}", user.getEmail(), itemId);
+    }
+
     private ItemResponse mapToItemResponse(Item item) {
         return ItemResponse.builder()
                 .id(item.getId())
