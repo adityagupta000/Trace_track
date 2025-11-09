@@ -1,8 +1,15 @@
-HELP.md
+echo "HELP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+
+### Logs ###
+lost-and-found-backend/logs/
+*.log
+
+### Configuration files ###
+**/application.properties
 
 ### STS ###
 .apt_generated
@@ -30,4 +37,5 @@ build/
 !**/src/test/**/build/
 
 ### VS Code ###
-.vscode/
+.vscode/" > .gitignore
+
