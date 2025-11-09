@@ -9719,3 +9719,44 @@ Caused by: java.sql.SQLIntegrityConstraintViolationException: Cannot delete or u
 2025-11-09T22:20:41.118+05:30 DEBUG 24428 --- [lost-and-found-backend] [http-nio-8080-exec-7] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json]
 2025-11-09T22:20:41.119+05:30 DEBUG 24428 --- [lost-and-found-backend] [http-nio-8080-exec-7] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [ApiResponse(success=true, message=Feedback deleted successfully, data=null)]
 2025-11-09T22:20:41.122+05:30 DEBUG 24428 --- [lost-and-found-backend] [http-nio-8080-exec-7] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2025-11-09T22:20:57.564+05:30 DEBUG 24428 --- [lost-and-found-backend] [http-nio-8080-exec-6] o.s.security.web.FilterChainProxy        : Securing DELETE /admin/feedback/2
+2025-11-09T22:20:57.575+05:30 DEBUG 24428 --- [lost-and-found-backend] [http-nio-8080-exec-6] org.hibernate.SQL                        : 
+    select
+        u1_0.id,
+        u1_0.created_at,
+        u1_0.email,
+        u1_0.name,
+        u1_0.password,
+        u1_0.role 
+    from
+        users u1_0 
+    where
+        u1_0.id=?
+2025-11-09T22:20:57.581+05:30 DEBUG 24428 --- [lost-and-found-backend] [http-nio-8080-exec-6] c.l.security.JwtAuthenticationFilter     : Set authentication for user: 3
+2025-11-09T22:20:57.583+05:30 DEBUG 24428 --- [lost-and-found-backend] [http-nio-8080-exec-6] o.s.security.web.FilterChainProxy        : Secured DELETE /admin/feedback/2
+2025-11-09T22:20:57.584+05:30 DEBUG 24428 --- [lost-and-found-backend] [http-nio-8080-exec-6] o.s.web.servlet.DispatcherServlet        : DELETE "/admin/feedback/2", parameters={}
+2025-11-09T22:20:57.587+05:30 DEBUG 24428 --- [lost-and-found-backend] [http-nio-8080-exec-6] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.lostandfound.controller.AdminController#deleteFeedback(Long)
+2025-11-09T22:20:57.588+05:30 DEBUG 24428 --- [lost-and-found-backend] [http-nio-8080-exec-6] horizationManagerBeforeMethodInterceptor : Authorizing method invocation ReflectiveMethodInvocation: public org.springframework.http.ResponseEntity com.lostandfound.controller.AdminController.deleteFeedback(java.lang.Long); target is of class [com.lostandfound.controller.AdminController]
+2025-11-09T22:20:57.589+05:30 DEBUG 24428 --- [lost-and-found-backend] [http-nio-8080-exec-6] horizationManagerBeforeMethodInterceptor : Authorized method invocation ReflectiveMethodInvocation: public org.springframework.http.ResponseEntity com.lostandfound.controller.AdminController.deleteFeedback(java.lang.Long); target is of class [com.lostandfound.controller.AdminController]
+2025-11-09T22:20:57.596+05:30 DEBUG 24428 --- [lost-and-found-backend] [http-nio-8080-exec-6] org.hibernate.SQL                        : 
+    select
+        f1_0.id,
+        f1_0.feedback_text,
+        f1_0.submitted_at,
+        f1_0.user_id 
+    from
+        feedback f1_0 
+    where
+        f1_0.id=?
+2025-11-09T22:20:57.602+05:30 DEBUG 24428 --- [lost-and-found-backend] [http-nio-8080-exec-6] org.hibernate.SQL                        : 
+    delete 
+    from
+        feedback 
+    where
+        id=?
+2025-11-09T22:20:57.626+05:30 DEBUG 24428 --- [lost-and-found-backend] [http-nio-8080-exec-6] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json]
+2025-11-09T22:20:57.627+05:30 DEBUG 24428 --- [lost-and-found-backend] [http-nio-8080-exec-6] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [ApiResponse(success=true, message=Feedback deleted successfully, data=null)]
+2025-11-09T22:20:57.630+05:30 DEBUG 24428 --- [lost-and-found-backend] [http-nio-8080-exec-6] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2025-11-09T22:37:41.013+05:30  INFO 24428 --- [lost-and-found-backend] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2025-11-09T22:37:41.020+05:30  INFO 24428 --- [lost-and-found-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2025-11-09T22:37:41.023+05:30  INFO 24428 --- [lost-and-found-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
