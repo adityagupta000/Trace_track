@@ -33,6 +33,7 @@ public class RefreshToken {
     private Instant expiryDate;
 
     @Column(name = "revoked")
+    @Builder.Default
     private boolean revoked = false;
 
     @CreationTimestamp

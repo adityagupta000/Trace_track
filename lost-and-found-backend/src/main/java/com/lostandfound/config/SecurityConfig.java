@@ -1,6 +1,7 @@
 package com.lostandfound.config;
 
 import com.lostandfound.security.JwtAuthenticationFilter;
+import com.lostandfound.security.RateLimitFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -72,29 +73,26 @@ public class SecurityConfig {
         requestHandler.setCsrfRequestAttributeName("_csrf");
 
         http
-                // Add Rate Limit Filter before JWT Filter
-                .addFilterBefore(rateLimitFilter, JwtAuthenticationFilter.class)
-                
                 // CSRF Configuration
                 .csrf(csrf -> {
                     if (csrfEnabled) {
                         // Enable CSRF with Cookie-based tokens for SPA
                         csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                            .csrfTokenRequestHandler(requestHandler)
-                            .ignoringRequestMatchers("/api/auth/**"); // Exclude auth endpoints
+                                .csrfTokenRequestHandler(requestHandler)
+                                .ignoringRequestMatchers("/api/auth/**"); // Exclude auth endpoints
                     } else {
                         // Disable CSRF for stateless JWT authentication
                         csrf.disable();
                     }
                 })
-                
+
                 // CORS Configuration
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                
+
                 // Session Management - Stateless
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                
+
                 // Authorization Rules
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints
@@ -106,20 +104,23 @@ public class SecurityConfig {
                                 "/actuator/health",
                                 "/actuator/info"
                         ).permitAll()
-                        
+
                         // Admin endpoints
                         .requestMatchers("/admin/**").hasRole("ADMIN")
-                        
+
                         // All other requests require authentication
                         .anyRequest().authenticated()
                 )
-                
+
                 // Authentication Provider
                 .authenticationProvider(authenticationProvider())
-                
-                // JWT Filter
+
+                // Add filters in correct order:
+                // 1. First add JWT filter before UsernamePasswordAuthenticationFilter
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                
+                // 2. Then add Rate Limit filter before JWT filter
+                .addFilterBefore(rateLimitFilter, JwtAuthenticationFilter.class)
+
                 // Security Headers
                 .headers(headers -> headers
                         // Content Security Policy
@@ -130,19 +131,19 @@ public class SecurityConfig {
                                         "img-src 'self' data: https:; " +
                                         "font-src 'self' data:; " +
                                         "connect-src 'self'"))
-                        
+
                         // Frame Options - Prevent Clickjacking
                         .frameOptions(frame -> frame.deny())
-                        
+
                         // XSS Protection
                         .xssProtection(xss -> xss
                                 .headerValue(XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK))
-                        
+
                         // HSTS - Force HTTPS
                         .httpStrictTransportSecurity(hsts -> hsts
                                 .includeSubDomains(true)
                                 .maxAgeInSeconds(31536000)) // 1 year
-                        
+
                         // Prevent MIME Sniffing
                         .contentTypeOptions(contentType -> {})
                 );
@@ -153,16 +154,16 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
+
         // Parse allowed origins from application.properties
         List<String> origins = Arrays.asList(allowedOrigins.split(","));
         configuration.setAllowedOriginPatterns(origins);
-        
+
         // Allowed HTTP methods
         configuration.setAllowedMethods(Arrays.asList(
                 "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
         ));
-        
+
         // Allowed headers
         configuration.setAllowedHeaders(Arrays.asList(
                 "Authorization",
@@ -174,7 +175,7 @@ public class SecurityConfig {
                 "Access-Control-Request-Headers",
                 "X-CSRF-TOKEN"
         ));
-        
+
         // Exposed headers (so frontend can read them)
         configuration.setExposedHeaders(Arrays.asList(
                 "Authorization",
@@ -182,16 +183,16 @@ public class SecurityConfig {
                 "Access-Control-Allow-Origin",
                 "Access-Control-Allow-Credentials"
         ));
-        
+
         // Allow credentials (cookies, authorization headers)
         configuration.setAllowCredentials(true);
-        
+
         // Cache preflight response for 1 hour
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
-        
+
         return source;
     }
 }

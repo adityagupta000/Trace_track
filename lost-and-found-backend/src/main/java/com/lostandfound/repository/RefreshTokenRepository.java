@@ -13,21 +13,21 @@ import java.util.Optional;
 
 @Repository
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
-    
+
     Optional<RefreshToken> findByToken(String token);
-    
+
     Optional<RefreshToken> findByUser(User user);
-    
+
     @Modifying
     @Query("DELETE FROM RefreshToken rt WHERE rt.user = ?1")
-    void deleteByUser(User user);
-    
+    int deleteByUser(User user);
+
     @Modifying
     @Query("DELETE FROM RefreshToken rt WHERE rt.expiryDate < ?1")
-    void deleteAllExpiredTokens(Instant now);
-    
+    int deleteAllExpiredTokens(Instant now);
+
     @Query("SELECT rt FROM RefreshToken rt WHERE rt.user = ?1 AND rt.revoked = false")
     List<RefreshToken> findActiveTokensByUser(User user);
-    
+
     boolean existsByToken(String token);
 }
