@@ -37,5 +37,4 @@ build/
 !**/src/test/**/build/
 
 ### VS Code ###
-.vscode/" > .gitignore
-
+.vscode/

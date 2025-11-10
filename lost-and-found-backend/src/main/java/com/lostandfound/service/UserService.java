@@ -5,6 +5,7 @@ import com.lostandfound.dto.request.RegisterRequest;
 import com.lostandfound.dto.response.AuthResponse;
 import com.lostandfound.dto.response.TokenRefreshResponse;
 import com.lostandfound.exception.BadRequestException;
+import com.lostandfound.exception.ResourceNotFoundException;
 import com.lostandfound.model.RefreshToken;
 import com.lostandfound.model.User;
 import com.lostandfound.repository.UserRepository;
@@ -205,5 +206,35 @@ public class UserService {
     public User getUserByEmail(String email) {
         return userRepository.findByEmail(email.toLowerCase().trim())
                 .orElseThrow(() -> new BadRequestException("User not found"));
+    }
+
+    @Transactional
+    public void deleteUser(Long userId, UserPrincipal currentUser) {
+        // Verify current user is admin
+        User adminUser = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new BadRequestException("Admin user not found"));
+
+        if (adminUser.getRole() != User.Role.ADMIN) {
+            throw new BadRequestException("Only admins can delete users");
+        }
+
+        // Find the user to delete
+        User userToDelete = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        // Prevent deleting admin users
+        if (userToDelete.getRole() == User.Role.ADMIN) {
+            throw new BadRequestException("Cannot delete admin user");
+        }
+
+        logger.info("Admin {} deleting user {}", adminUser.getEmail(), userToDelete.getEmail());
+
+        // Delete all refresh tokens for this user
+        refreshTokenService.revokeAllUserTokens(userId);
+
+        // Delete the user (cascading will handle related data if configured)
+        userRepository.delete(userToDelete);
+
+        logger.info("Successfully deleted user: {}", userToDelete.getEmail());
     }
 }

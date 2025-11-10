@@ -12,6 +12,7 @@ import com.lostandfound.security.UserPrincipal;
 import com.lostandfound.service.ClaimService;
 import com.lostandfound.service.FeedbackService;
 import com.lostandfound.service.ItemService;
+import com.lostandfound.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +38,7 @@ public class AdminController {
     private final ClaimService claimService;
     private final FeedbackService feedbackService;
     private final UserRepository userRepository;
+    private final UserService userService;
 
     @GetMapping("/dashboard")
     public ResponseEntity<Map<String, Object>> getAdminDashboard(
@@ -132,16 +134,10 @@ public class AdminController {
             throw new BadRequestException("You must be logged in");
         }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        logger.info("Admin {} attempting to delete user with ID {}", currentUser.getEmail(), userId);
 
-        if (user.getRole() == User.Role.ADMIN) {
-            throw new BadRequestException("Cannot delete admin user");
-        }
-
-        logger.info("Admin {} deleting user {}", currentUser.getEmail(), user.getEmail());
-
-        userRepository.delete(user);
+        // Use the service method to delete user with all related data
+        userService.deleteUser(userId, currentUser);
 
         ApiResponse response = ApiResponse.builder()
                 .success(true)
