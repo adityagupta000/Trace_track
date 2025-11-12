@@ -42,19 +42,37 @@ public class AdminController {
 
     @GetMapping("/dashboard")
     public ResponseEntity<Map<String, Object>> getAdminDashboard(
-            @AuthenticationPrincipal UserPrincipal currentUser) {
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
 
         if (currentUser == null) {
             throw new BadRequestException("You must be logged in");
         }
 
+        // Limit page size to prevent abuse
+        if (size > 100) {
+            size = 100;
+        }
+
         // Get all data
         List<ItemResponse> items = itemService.searchItems("", "");
-        List<ClaimResponse> claims = claimService.getUserClaims(null); // Get all claims
+        List<ClaimResponse> claims = claimService.getUserClaims(null);
         List<FeedbackResponse> feedback = feedbackService.getAllFeedback();
         List<User> users = userRepository.findByRoleNot(User.Role.ADMIN);
 
+        // Apply manual pagination
+        int itemsStart = Math.min(page * size, items.size());
+        int itemsEnd = Math.min(itemsStart + size, items.size());
+        List<ItemResponse> paginatedItems = items.subList(itemsStart, itemsEnd);
+
+        int claimsStart = Math.min(page * size, claims.size());
+        int claimsEnd = Math.min(claimsStart + size, claims.size());
+        List<ClaimResponse> paginatedClaims = claims.subList(claimsStart, claimsEnd);
+
         List<Map<String, Object>> userList = users.stream()
+                .skip((long) page * size)
+                .limit(size)
                 .map(user -> {
                     Map<String, Object> userMap = new HashMap<>();
                     userMap.put("id", user.getId());
@@ -68,15 +86,20 @@ public class AdminController {
 
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
-        response.put("items", items);
-        response.put("claims", claims);
+        response.put("items", paginatedItems);
+        response.put("claims", paginatedClaims);
         response.put("users", userList);
-        response.put("feedback", feedback);
+        response.put("feedback", feedback.stream().limit(size).collect(Collectors.toList()));
         response.put("stats", Map.of(
                 "totalItems", items.size(),
                 "totalClaims", claims.size(),
-                "totalUsers", userList.size(),
+                "totalUsers", users.size(),
                 "totalFeedback", feedback.size()
+        ));
+        response.put("pagination", Map.of(
+                "page", page,
+                "size", size,
+                "hasMore", itemsEnd < items.size()
         ));
 
         return ResponseEntity.ok(response);
@@ -91,7 +114,7 @@ public class AdminController {
             throw new BadRequestException("You must be logged in");
         }
 
-        logger.info("Admin {} deleting item {}", currentUser.getEmail(), itemId);
+        logger.info("Admin ID {} deleting item {}", currentUser.getId(), itemId);
 
         // Admin can delete any item
         itemService.deleteItemAsAdmin(itemId, currentUser);
@@ -113,7 +136,7 @@ public class AdminController {
             throw new BadRequestException("You must be logged in");
         }
 
-        logger.info("Admin {} deleting claim {}", currentUser.getEmail(), claimId);
+        logger.info("Admin ID {} deleting claim {}", currentUser.getId(), claimId);
 
         claimService.deleteClaim(claimId);
 
@@ -134,7 +157,7 @@ public class AdminController {
             throw new BadRequestException("You must be logged in");
         }
 
-        logger.info("Admin {} attempting to delete user with ID {}", currentUser.getEmail(), userId);
+        logger.info("Admin ID {} attempting to delete user ID {}", currentUser.getId(), userId);
 
         // Use the service method to delete user with all related data
         userService.deleteUser(userId, currentUser);
@@ -156,7 +179,7 @@ public class AdminController {
             throw new BadRequestException("You must be logged in");
         }
 
-        logger.info("Admin {} deleting feedback {}", currentUser.getEmail(), feedbackId);
+        logger.info("Admin ID {} deleting feedback {}", currentUser.getId(), feedbackId);
 
         feedbackService.deleteFeedback(feedbackId);
 

@@ -21,6 +21,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.security.web.header.writers.XXssProtectionHeaderWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -42,7 +44,7 @@ public class SecurityConfig {
     @Value("${cors.allowed-origins}")
     private String allowedOrigins;
 
-    @Value("${security.csrf.enabled:false}")
+    @Value("${security.csrf.enabled:true}")
     private boolean csrfEnabled;
 
     @Bean
@@ -79,7 +81,11 @@ public class SecurityConfig {
                         // Enable CSRF with Cookie-based tokens for SPA
                         csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                                 .csrfTokenRequestHandler(requestHandler)
-                                .ignoringRequestMatchers("/api/auth/**"); // Exclude auth endpoints
+                                .ignoringRequestMatchers(
+                                        "/api/auth/login",
+                                        "/api/auth/register",
+                                        "/api/auth/refresh"
+                                ); // Exclude specific auth endpoints
                     } else {
                         // Disable CSRF for stateless JWT authentication
                         csrf.disable();
@@ -97,7 +103,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints
                         .requestMatchers(
-                                "/api/auth/**",
+                                "/api/auth/login",
+                                "/api/auth/register",
+                                "/api/auth/refresh",
                                 "/uploads/**",
                                 "/static/**",
                                 "/error",
@@ -146,6 +154,16 @@ public class SecurityConfig {
 
                         // Prevent MIME Sniffing
                         .contentTypeOptions(contentType -> {})
+
+                        // Referrer Policy
+                        .referrerPolicy(referrer ->
+                                referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+
+                        // Permissions Policy
+                        .addHeaderWriter(new StaticHeadersWriter(
+                                "Permissions-Policy",
+                                "geolocation=(), microphone=(), camera=()"
+                        ))
                 );
 
         return http.build();

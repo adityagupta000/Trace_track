@@ -38,41 +38,49 @@ public class ClaimService {
             throw new UnauthorizedException("You must be logged in to claim an item");
         }
 
-        Item item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new ResourceNotFoundException("Item", "id", itemId));
-
         User user = userRepository.findById(currentUser.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", currentUser.getId()));
 
-        // Check if item is already claimed
-        if (item.getStatus() == Item.Status.CLAIMED) {
-            throw new BadRequestException("This item has already been claimed by someone else");
+        // Use pessimistic locking to prevent race conditions
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Item", "id", itemId));
+
+        // Synchronize on item to prevent concurrent claims
+        synchronized (this) {
+            // Re-fetch with lock to ensure we have latest state
+            item = itemRepository.findById(itemId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Item", "id", itemId));
+
+            // Check if item is already claimed
+            if (item.getStatus() == Item.Status.CLAIMED) {
+                throw new BadRequestException("This item has already been claimed by someone else");
+            }
+
+            // Check if user is trying to claim their own item
+            if (item.getCreatedBy().getId().equals(currentUser.getId())) {
+                throw new BadRequestException("You cannot claim your own item");
+            }
+
+            // Check if user has already claimed this item
+            if (claimRepository.existsByItemAndClaimedBy(item, user)) {
+                throw new BadRequestException("You have already submitted a claim for this item");
+            }
+
+            // Create new claim
+            Claim claim = new Claim();
+            claim.setItem(item);
+            claim.setClaimedBy(user);
+            claim.setClaimantName(user.getName());
+            claim.setClaimantEmail(user.getEmail());
+
+            claimRepository.save(claim);
+
+            // Update item status
+            item.setStatus(Item.Status.CLAIMED);
+            itemRepository.save(item);
+
+            logger.info("User ID {} claimed item {}", user.getId(), itemId);
         }
-
-        // Check if user is trying to claim their own item
-        if (item.getCreatedBy().getId().equals(currentUser.getId())) {
-            throw new BadRequestException("You cannot claim your own item");
-        }
-
-        // Check if user has already claimed this item
-        if (claimRepository.existsByItemAndClaimedBy(item, user)) {
-            throw new BadRequestException("You have already submitted a claim for this item");
-        }
-
-        // Create new claim
-        Claim claim = new Claim();
-        claim.setItem(item);
-        claim.setClaimedBy(user);
-        claim.setClaimantName(user.getName());
-        claim.setClaimantEmail(user.getEmail());
-
-        claimRepository.save(claim);
-
-        // Update item status
-        item.setStatus(Item.Status.CLAIMED);
-        itemRepository.save(item);
-
-        logger.info("User {} claimed item {}", user.getEmail(), itemId);
 
         return ApiResponse.builder()
                 .success(true)

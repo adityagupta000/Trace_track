@@ -133,9 +133,30 @@ public class AuthController {
 
     private String getClientIP(HttpServletRequest request) {
         String xfHeader = request.getHeader("X-Forwarded-For");
-        if (xfHeader == null || xfHeader.isEmpty()) {
-            return request.getRemoteAddr();
+        String remoteAddr = request.getRemoteAddr();
+        boolean isTrustedProxy = isTrustedProxy(remoteAddr);
+
+        if (isTrustedProxy && xfHeader != null && !xfHeader.isEmpty()) {
+            String clientIp = xfHeader.split(",")[0].trim();
+            if (isValidIP(clientIp)) {
+                return clientIp;
+            }
         }
-        return xfHeader.split(",")[0].trim();
+
+        return remoteAddr;
+    }
+
+    private boolean isTrustedProxy(String ip) {
+        return "127.0.0.1".equals(ip) ||
+                "0:0:0:0:0:0:0:1".equals(ip) ||
+                "::1".equals(ip);
+    }
+
+    private boolean isValidIP(String ip) {
+        if (ip == null || ip.isEmpty()) {
+            return false;
+        }
+        String ipv4Pattern = "^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$";
+        return ip.matches(ipv4Pattern);
     }
 }

@@ -70,7 +70,7 @@ public class ItemService {
         item.setCreatedBy(user);
 
         item = itemRepository.save(item);
-        logger.info("User {} created new item: {}", user.getEmail(), item.getId());
+        logger.info("User ID {} created new item: {}", user.getId(), item.getId());
 
         return mapToItemResponse(item);
     }
@@ -94,14 +94,39 @@ public class ItemService {
             }
         }
 
+        // Sanitize search input to prevent wildcard injection
+        String sanitizedSearch = sanitizeSearchInput(search);
+
         List<Item> items = itemRepository.searchItems(
-                search != null ? search.trim() : "",
+                sanitizedSearch,
                 itemStatus
         );
 
         return items.stream()
                 .map(this::mapToItemResponse)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Sanitize search input to prevent SQL wildcard injection
+     */
+    private String sanitizeSearchInput(String search) {
+        if (search == null || search.trim().isEmpty()) {
+            return "";
+        }
+
+        // Remove or escape SQL wildcards
+        String sanitized = search.trim()
+                .replace("\\", "\\\\")  // Escape backslash first
+                .replace("%", "\\%")     // Escape %
+                .replace("_", "\\_");    // Escape _
+
+        // Limit length to prevent DoS
+        if (sanitized.length() > 100) {
+            sanitized = sanitized.substring(0, 100);
+        }
+
+        return sanitized;
     }
 
     @Transactional(readOnly = true)
@@ -169,7 +194,7 @@ public class ItemService {
         }
 
         item = itemRepository.save(item);
-        logger.info("User {} updated item: {}", user.getEmail(), item.getId());
+        logger.info("User ID {} updated item: {}", user.getId(), item.getId());
 
         return mapToItemResponse(item);
     }
@@ -208,7 +233,7 @@ public class ItemService {
         }
 
         itemRepository.delete(item);
-        logger.info("User {} deleted item: {}", user.getEmail(), itemId);
+        logger.info("User ID {} deleted item: {}", user.getId(), itemId);
     }
 
     @Transactional
@@ -242,7 +267,7 @@ public class ItemService {
         }
 
         itemRepository.delete(item);
-        logger.info("Admin {} deleted item: {}", user.getEmail(), itemId);
+        logger.info("Admin ID {} deleted item: {}", user.getId(), itemId);
     }
 
     private ItemResponse mapToItemResponse(Item item) {

@@ -47,8 +47,15 @@ public class UserService {
 
         // Check if email already exists
         if (userRepository.existsByEmail(email)) {
-            logger.warn("Registration attempt with existing email: {}", email);
-            throw new BadRequestException("Email address is already registered");
+            logger.warn("Registration attempt with existing email");
+            // Use generic message to prevent user enumeration
+            // Add a small delay to prevent timing attacks
+            try {
+                Thread.sleep(100 + (long)(Math.random() * 200)); // 100-300ms random delay
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            throw new BadRequestException("Registration failed. Please check your information and try again.");
         }
 
         // Validate password confirmation
@@ -65,9 +72,9 @@ public class UserService {
 
         try {
             user = userRepository.save(user);
-            logger.info("New user registered successfully: {}", email);
+            logger.info("New user registered successfully with ID: {}", user.getId());
         } catch (Exception e) {
-            logger.error("Error during user registration: {}", email, e);
+            logger.error("Error during user registration", e);
             throw new BadRequestException("Registration failed. Please try again.");
         }
 
@@ -129,7 +136,7 @@ public class UserService {
                     user.getId(), ipAddress, userAgent
             );
 
-            logger.info("User logged in successfully: {}", email);
+            logger.info("User logged in successfully with ID: {}", user.getId());
 
             // Build user DTO
             AuthResponse.UserDTO userDTO = AuthResponse.UserDTO.builder()
@@ -150,13 +157,13 @@ public class UserService {
                     .build();
 
         } catch (BadCredentialsException e) {
-            logger.warn("Failed login attempt for email: {}", email);
+            logger.warn("Failed login attempt");
             throw new BadCredentialsException("Invalid email or password");
         } catch (LockedException e) {
-            logger.warn("Login attempt for locked account: {}", email);
+            logger.warn("Login attempt for locked account");
             throw new BadRequestException("Account is locked. Please contact support.");
         } catch (Exception e) {
-            logger.error("Error during login for email: {}", email, e);
+            logger.error("Error during login", e);
             throw new BadRequestException("Login failed. Please try again.");
         }
     }
@@ -169,7 +176,7 @@ public class UserService {
         // Delete all refresh tokens for this user
         refreshTokenService.revokeAllUserTokens(userId);
 
-        logger.info("User logged out successfully: {}", user.getEmail());
+        logger.info("User logged out successfully with ID: {}", user.getId());
     }
 
     @Transactional
@@ -227,7 +234,7 @@ public class UserService {
             throw new BadRequestException("Cannot delete admin user");
         }
 
-        logger.info("Admin {} deleting user {}", adminUser.getEmail(), userToDelete.getEmail());
+        logger.info("Admin ID {} deleting user ID {}", adminUser.getId(), userToDelete.getId());
 
         // Delete all refresh tokens for this user
         refreshTokenService.revokeAllUserTokens(userId);
@@ -235,6 +242,6 @@ public class UserService {
         // Delete the user (cascading will handle related data if configured)
         userRepository.delete(userToDelete);
 
-        logger.info("Successfully deleted user: {}", userToDelete.getEmail());
+        logger.info("Successfully deleted user ID: {}", userToDelete.getId());
     }
 }

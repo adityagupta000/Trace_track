@@ -45,41 +45,41 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
         String clientIp = getClientIP(request);
-        
+
         // Determine rate limit type based on path
         RateLimitConfig.RateLimitType limitType = determineRateLimitType(path);
-        
+
         // Create unique key: IP + Path pattern
         String bucketKey = clientIp + ":" + limitType.name();
-        
+
         // Get or create bucket for this key
         Bucket bucket = rateLimitConfig.resolveBucket(bucketKey, limitType);
-        
+
         // Try to consume a token
         ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
-        
+
         if (probe.isConsumed()) {
             // Request allowed - add rate limit headers
             response.addHeader("X-Rate-Limit-Remaining", String.valueOf(probe.getRemainingTokens()));
-            response.addHeader("X-Rate-Limit-Retry-After-Seconds", 
+            response.addHeader("X-Rate-Limit-Retry-After-Seconds",
                     String.valueOf(limitType.getRefillDuration().getSeconds()));
-            
+
             filterChain.doFilter(request, response);
         } else {
             // Rate limit exceeded
             long waitForRefill = probe.getNanosToWaitForRefill() / 1_000_000_000;
-            
+
             logger.warn("Rate limit exceeded for IP: {} on path: {}", clientIp, path);
-            
+
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.addHeader("X-Rate-Limit-Retry-After-Seconds", String.valueOf(waitForRefill));
-            
+
             ApiResponse apiResponse = ApiResponse.builder()
                     .success(false)
                     .message("Rate limit exceeded. Please try again in " + waitForRefill + " seconds.")
                     .build();
-            
+
             response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
         }
     }
@@ -102,15 +102,60 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Extract client IP address
+     * Extract client IP address with proper proxy handling
      */
     private String getClientIP(HttpServletRequest request) {
+        // Only trust X-Forwarded-For if behind a known proxy
         String xfHeader = request.getHeader("X-Forwarded-For");
-        if (xfHeader == null || xfHeader.isEmpty()) {
-            return request.getRemoteAddr();
+
+        // Check if request is from trusted proxy
+        String remoteAddr = request.getRemoteAddr();
+        boolean isTrustedProxy = isTrustedProxy(remoteAddr);
+
+        if (isTrustedProxy && xfHeader != null && !xfHeader.isEmpty()) {
+            // X-Forwarded-For can contain multiple IPs, get the first one
+            String clientIp = xfHeader.split(",")[0].trim();
+
+            // Validate IP format to prevent injection
+            if (isValidIP(clientIp)) {
+                return clientIp;
+            }
         }
-        // X-Forwarded-For can contain multiple IPs, get the first one
-        return xfHeader.split(",")[0].trim();
+
+        return remoteAddr;
+    }
+
+    /**
+     * Check if IP is from trusted proxy
+     */
+    private boolean isTrustedProxy(String ip) {
+        // Add your trusted proxy IPs here (e.g., load balancer, reverse proxy)
+        // For local development, trust localhost
+        return "127.0.0.1".equals(ip) ||
+                "0:0:0:0:0:0:0:1".equals(ip) ||
+                "::1".equals(ip);
+        // In production, add your actual proxy IPs:
+        // return Arrays.asList("10.0.0.1", "172.16.0.1").contains(ip);
+    }
+
+    /**
+     * Validate IP address format
+     */
+    private boolean isValidIP(String ip) {
+        if (ip == null || ip.isEmpty()) {
+            return false;
+        }
+
+        // Simple validation for IPv4
+        String ipv4Pattern = "^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$";
+
+        // Simple validation for IPv6
+        String ipv6Pattern = "^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|" +
+                "([0-9a-fA-F]{1,4}:){1,7}:|" +
+                "([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|" +
+                "([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2})$";
+
+        return ip.matches(ipv4Pattern) || ip.matches(ipv6Pattern);
     }
 
     /**
@@ -119,7 +164,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path.startsWith("/actuator/health") || 
-               path.startsWith("/actuator/info");
+        return path.startsWith("/actuator/health") ||
+                path.startsWith("/actuator/info");
     }
 }
