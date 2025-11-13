@@ -10,7 +10,9 @@ import com.lostandfound.exception.BadRequestException;
 import com.lostandfound.security.UserPrincipal;
 import com.lostandfound.service.RefreshTokenService;
 import com.lostandfound.service.UserService;
+import com.lostandfound.util.CookieUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,63 +26,92 @@ public class AuthController {
 
     private final UserService userService;
     private final RefreshTokenService refreshTokenService;
+    private final CookieUtil cookieUtil; // Add this
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> registerUser(
             @Valid @RequestBody RegisterRequest request,
-            HttpServletRequest httpRequest) {
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) { // Add response parameter
 
         String ipAddress = getClientIP(httpRequest);
         String userAgent = httpRequest.getHeader("User-Agent");
 
         AuthResponse response = userService.registerUser(request, ipAddress, userAgent);
+
+        // Set refresh token in httpOnly cookie
+        cookieUtil.addRefreshTokenCookie(httpResponse, response.getRefreshToken());
+
+        // Remove refresh token from response body (security best practice)
+        response.setRefreshToken(null);
+
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> loginUser(
             @Valid @RequestBody LoginRequest request,
-            HttpServletRequest httpRequest) {
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) { // Add response parameter
 
         String ipAddress = getClientIP(httpRequest);
         String userAgent = httpRequest.getHeader("User-Agent");
 
         AuthResponse response = userService.loginUser(request, ipAddress, userAgent);
+
+        // Set refresh token in httpOnly cookie
+        cookieUtil.addRefreshTokenCookie(httpResponse, response.getRefreshToken());
+
+        // Remove refresh token from response body
+        response.setRefreshToken(null);
+
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/refresh")
     public ResponseEntity<TokenRefreshResponse> refreshToken(
-            @Valid @RequestBody TokenRefreshRequest request,
-            @AuthenticationPrincipal UserPrincipal currentUser) {
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
 
-        // Validate that refresh token is provided
-        if (request.getRefreshToken() == null || request.getRefreshToken().trim().isEmpty()) {
-            throw new BadRequestException("Refresh token is required");
-        }
+        // Get refresh token from cookie instead of request body
+        String refreshToken = cookieUtil.getRefreshToken(httpRequest)
+                .orElseThrow(() -> new BadRequestException("Refresh token not found"));
 
-        TokenRefreshResponse response = userService.refreshToken(request.getRefreshToken());
+        TokenRefreshResponse response = userService.refreshToken(refreshToken);
+
+        // Update refresh token cookie
+        cookieUtil.addRefreshTokenCookie(httpResponse, response.getRefreshToken());
+
+        // Remove refresh token from response body
+        response.setRefreshToken(null);
+
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse> logout(
             @AuthenticationPrincipal UserPrincipal currentUser,
-            @RequestBody(required = false) TokenRefreshRequest request) {
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
 
         // User must be authenticated to logout
         if (currentUser == null) {
             throw new BadRequestException("You are not logged in");
         }
 
-        // Validate and revoke refresh token if provided
-        if (request != null && request.getRefreshToken() != null && !request.getRefreshToken().trim().isEmpty()) {
+        // Get refresh token from cookie
+        String refreshToken = cookieUtil.getRefreshToken(httpRequest).orElse(null);
+
+        if (refreshToken != null) {
             // Verify the token belongs to the current user before revoking
-            refreshTokenService.revokeTokenForUser(request.getRefreshToken(), currentUser.getId());
+            refreshTokenService.revokeTokenForUser(refreshToken, currentUser.getId());
         } else {
             // Revoke all tokens for this user
             refreshTokenService.revokeAllUserTokens(currentUser.getId());
         }
+
+        // Clear auth cookies
+        cookieUtil.deleteAllAuthCookies(httpResponse);
 
         ApiResponse response = ApiResponse.builder()
                 .success(true)

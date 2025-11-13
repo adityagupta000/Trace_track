@@ -46,25 +46,35 @@ public class CookieUtil {
     /**
      * Generic method to add cookie
      */
-    private void addCookie(HttpServletResponse response, String name, String value, 
-                          int maxAge, boolean httpOnly) {
+// In the addCookie method, update line 59-67:
+    private void addCookie(HttpServletResponse response, String name, String value,
+                           int maxAge, boolean httpOnly) {
         Cookie cookie = new Cookie(name, value);
         cookie.setPath("/");
         cookie.setHttpOnly(httpOnly);
         cookie.setMaxAge(maxAge);
-        cookie.setSecure(cookieSecure); // Set to true in production with HTTPS
-        
-        // SameSite attribute (Lax, Strict, None)
-        // Note: SameSite=None requires Secure=true
-        String cookieHeader = String.format(
-            "%s=%s; Path=/; Max-Age=%d; HttpOnly=%s; Secure=%s; SameSite=%s",
-            name, value, maxAge,
-            httpOnly ? "true" : "false",
-            cookieSecure ? "true" : "false",
-            cookieSameSite
-        );
-        
-        response.addHeader("Set-Cookie", cookieHeader);
+        cookie.setSecure(cookieSecure);
+
+        // SameSite attribute - build proper header
+        StringBuilder cookieHeader = new StringBuilder();
+        cookieHeader.append(name).append("=").append(value);
+        cookieHeader.append("; Path=/");
+        cookieHeader.append("; Max-Age=").append(maxAge);
+
+        if (httpOnly) {
+            cookieHeader.append("; HttpOnly");
+        }
+
+        if (cookieSecure) {
+            cookieHeader.append("; Secure");
+        }
+
+        // SameSite - only add if specified
+        if (cookieSameSite != null && !cookieSameSite.isEmpty()) {
+            cookieHeader.append("; SameSite=").append(cookieSameSite);
+        }
+
+        response.addHeader("Set-Cookie", cookieHeader.toString());
     }
 
     /**
