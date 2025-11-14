@@ -2,7 +2,6 @@ package com.lostandfound.controller;
 
 import com.lostandfound.dto.request.LoginRequest;
 import com.lostandfound.dto.request.RegisterRequest;
-import com.lostandfound.dto.request.TokenRefreshRequest;
 import com.lostandfound.dto.response.ApiResponse;
 import com.lostandfound.dto.response.AuthResponse;
 import com.lostandfound.dto.response.TokenRefreshResponse;
@@ -26,23 +25,25 @@ public class AuthController {
 
     private final UserService userService;
     private final RefreshTokenService refreshTokenService;
-    private final CookieUtil cookieUtil; // Add this
+    private final CookieUtil cookieUtil;
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> registerUser(
             @Valid @RequestBody RegisterRequest request,
             HttpServletRequest httpRequest,
-            HttpServletResponse httpResponse) { // Add response parameter
+            HttpServletResponse httpResponse) {
 
         String ipAddress = getClientIP(httpRequest);
         String userAgent = httpRequest.getHeader("User-Agent");
 
         AuthResponse response = userService.registerUser(request, ipAddress, userAgent);
 
-        // Set refresh token in httpOnly cookie
+        // CRITICAL: Set BOTH access and refresh tokens in cookies
+        cookieUtil.addAccessTokenCookie(httpResponse, response.getAccessToken());
         cookieUtil.addRefreshTokenCookie(httpResponse, response.getRefreshToken());
 
-        // Remove refresh token from response body (security best practice)
+        // Remove tokens from response body (security best practice)
+        response.setAccessToken(null);
         response.setRefreshToken(null);
 
         return ResponseEntity.ok(response);
@@ -52,17 +53,19 @@ public class AuthController {
     public ResponseEntity<AuthResponse> loginUser(
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest httpRequest,
-            HttpServletResponse httpResponse) { // Add response parameter
+            HttpServletResponse httpResponse) {
 
         String ipAddress = getClientIP(httpRequest);
         String userAgent = httpRequest.getHeader("User-Agent");
 
         AuthResponse response = userService.loginUser(request, ipAddress, userAgent);
 
-        // Set refresh token in httpOnly cookie
+        // CRITICAL: Set BOTH access and refresh tokens in cookies
+        cookieUtil.addAccessTokenCookie(httpResponse, response.getAccessToken());
         cookieUtil.addRefreshTokenCookie(httpResponse, response.getRefreshToken());
 
-        // Remove refresh token from response body
+        // Remove tokens from response body
+        response.setAccessToken(null);
         response.setRefreshToken(null);
 
         return ResponseEntity.ok(response);
@@ -73,16 +76,18 @@ public class AuthController {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
 
-        // Get refresh token from cookie instead of request body
+        // Get refresh token from cookie
         String refreshToken = cookieUtil.getRefreshToken(httpRequest)
                 .orElseThrow(() -> new BadRequestException("Refresh token not found"));
 
         TokenRefreshResponse response = userService.refreshToken(refreshToken);
 
-        // Update refresh token cookie
+        // Update BOTH access and refresh token cookies
+        cookieUtil.addAccessTokenCookie(httpResponse, response.getAccessToken());
         cookieUtil.addRefreshTokenCookie(httpResponse, response.getRefreshToken());
 
-        // Remove refresh token from response body
+        // Remove tokens from response body
+        response.setAccessToken(null);
         response.setRefreshToken(null);
 
         return ResponseEntity.ok(response);
@@ -94,7 +99,6 @@ public class AuthController {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
 
-        // User must be authenticated to logout
         if (currentUser == null) {
             throw new BadRequestException("You are not logged in");
         }
@@ -103,14 +107,12 @@ public class AuthController {
         String refreshToken = cookieUtil.getRefreshToken(httpRequest).orElse(null);
 
         if (refreshToken != null) {
-            // Verify the token belongs to the current user before revoking
             refreshTokenService.revokeTokenForUser(refreshToken, currentUser.getId());
         } else {
-            // Revoke all tokens for this user
             refreshTokenService.revokeAllUserTokens(currentUser.getId());
         }
 
-        // Clear auth cookies
+        // Clear all auth cookies
         cookieUtil.deleteAllAuthCookies(httpResponse);
 
         ApiResponse response = ApiResponse.builder()

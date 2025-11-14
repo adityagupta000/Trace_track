@@ -19,12 +19,17 @@ export default function LoginPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
-        credentials: "include", // Important: This allows cookies to be set
-        body: JSON.stringify({ email, password }),
+        credentials: "include", // CRITICAL: This sends/receives cookies
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          password,
+        }),
       });
 
       const data = await res.json();
+      console.log("Login response:", data); // Debug log
 
       if (!res.ok || !data.success) {
         toast.error(data.message || "Invalid email or password.");
@@ -33,7 +38,9 @@ export default function LoginPage() {
 
       toast.success("Login successful!");
 
-      // Backend sets HTTP-only cookies, no need to store tokens in localStorage
+      // Wait a moment for cookie to be set
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       // Redirect based on user role
       if (data.user?.role === "ADMIN") {
         navigate("/admin");
@@ -42,7 +49,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error("Login error:", err);
-      toast.error("Login failed. Please try again.");
+      toast.error("Login failed. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -53,7 +60,9 @@ export default function LoginPage() {
       <Toaster position="top-center" />
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-blue-600 mb-2">Lost & Found</h1>
+          <h1 className="text-3xl font-bold text-blue-600 mb-2">
+            Lost & Found
+          </h1>
           <h2 className="text-xl font-semibold text-gray-700">Welcome Back</h2>
           <p className="text-sm text-gray-500 mt-1">Sign in to your account</p>
         </div>

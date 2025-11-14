@@ -32,14 +32,20 @@ export default function ItemsPage() {
   const fetchUser = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.ME}`, {
+        method: "GET",
         credentials: "include",
+        headers: {
+          Accept: "application/json",
+        },
       });
       if (res.ok) {
         const data = await res.json();
-        setCurrentUser(data.data); // Backend returns data in 'data' field
+        if (data.success && data.data) {
+          setCurrentUser(data.data); // Backend returns data in 'data' field
+        }
       }
     } catch (err) {
-      console.error("Failed to fetch user");
+      console.error("Failed to fetch user", err);
     }
   };
 
@@ -52,12 +58,16 @@ export default function ItemsPage() {
       const res = await fetch(
         `${API_BASE_URL}${API_ENDPOINTS.ITEMS}?${params.toString()}`,
         {
+          method: "GET",
           credentials: "include",
+          headers: {
+            Accept: "application/json",
+          },
         }
       );
 
       if (!res.ok) throw new Error("Failed to fetch items");
-      
+
       const data = await res.json();
       setItems(data.items || []);
     } catch (err) {
@@ -84,6 +94,9 @@ export default function ItemsPage() {
         {
           method: "POST",
           credentials: "include",
+          headers: {
+            Accept: "application/json",
+          },
         }
       );
 
@@ -120,7 +133,10 @@ export default function ItemsPage() {
     try {
       const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.MESSAGES}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         credentials: "include",
         body: JSON.stringify({
           receiverId: currentItem.createdBy,
@@ -173,7 +189,7 @@ export default function ItemsPage() {
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <Toaster position="top-center" reverseOrder={false} />
-      
+
       <h1 className="text-3xl font-bold text-blue-600 text-center">
         Lost and Found Items
       </h1>
@@ -215,7 +231,9 @@ export default function ItemsPage() {
             )}
             <div className="p-4 space-y-2 flex-1 flex flex-col justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-800">{item.name}</h2>
+                <h2 className="text-lg font-semibold text-gray-800">
+                  {item.name}
+                </h2>
                 <p className="text-sm text-gray-500 flex items-center gap-1">
                   <span>📍</span> {item.location}
                 </p>
@@ -353,8 +371,8 @@ export default function ItemsPage() {
               Claim Item: {currentItem.name}
             </h3>
             <p className="text-sm text-gray-600">
-              Your registered name and email will be used for this claim.
-              The item owner will be notified.
+              Your registered name and email will be used for this claim. The
+              item owner will be notified.
             </p>
             <div className="flex justify-end gap-2">
               <button

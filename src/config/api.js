@@ -46,9 +46,10 @@ export const API_ENDPOINTS = {
 // Helper function to make API calls with proper error handling
 export const apiCall = async (endpoint, options = {}) => {
   const defaultOptions = {
-    credentials: 'include', // Always include cookies
+    credentials: 'include', // CRITICAL: Always include cookies
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
       ...options.headers,
     },
   };
@@ -64,17 +65,18 @@ export const apiCall = async (endpoint, options = {}) => {
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, finalOptions);
 
-    // Handle token refresh if needed (401 Unauthorized)
-    // Only attempt refresh for non-auth endpoints
+    // Handle 401 Unauthorized - try to refresh token
     if (response.status === 401 && 
         !endpoint.includes('/api/auth/') && 
         endpoint !== API_ENDPOINTS.REFRESH) {
       
-      // Try to refresh token
       try {
         const refreshResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.REFRESH}`, {
           method: 'POST',
           credentials: 'include',
+          headers: {
+            'Accept': 'application/json',
+          },
         });
 
         if (refreshResponse.ok) {

@@ -22,7 +22,11 @@ export default function AdminPage() {
   const validateAdminAccess = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.ME}`, {
+        method: 'GET',
         credentials: "include",
+        headers: {
+          'Accept': 'application/json',
+        },
       });
 
       if (!res.ok) {
@@ -41,6 +45,7 @@ export default function AdminPage() {
       }
       return true;
     } catch (err) {
+      console.error("Admin validation error:", err);
       toast.error("Error validating admin access.");
       navigate("/");
       return false;
@@ -51,7 +56,11 @@ export default function AdminPage() {
   const fetchAdminData = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.ADMIN_DASHBOARD}`, {
+        method: 'GET',
         credentials: "include",
+        headers: {
+          'Accept': 'application/json',
+        },
       });
 
       if (!res.ok) {
@@ -63,7 +72,7 @@ export default function AdminPage() {
       }
 
       const data = await res.json();
-      
+
       if (data.success) {
         setItems(data.items || []);
         setClaims(data.claims || []);
@@ -124,6 +133,9 @@ export default function AdminPage() {
       const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: "DELETE",
         credentials: "include",
+        headers: {
+          'Accept': 'application/json',
+        },
       });
 
       const data = await res.json();

@@ -12,18 +12,12 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
-import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
-import org.springframework.security.web.header.writers.StaticHeadersWriter;
-import org.springframework.security.web.header.writers.XXssProtectionHeaderWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -44,12 +38,11 @@ public class SecurityConfig {
     @Value("${cors.allowed-origins}")
     private String allowedOrigins;
 
-    @Value("${security.csrf.enabled:true}")
+    @Value("${security.csrf.enabled:false}")  // CHANGED: Default to false for development
     private boolean csrfEnabled;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        // Use strength 12 for production (default is 10)
         return new BCryptPasswordEncoder(12);
     }
 
@@ -58,7 +51,7 @@ public class SecurityConfig {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
-        authProvider.setHideUserNotFoundExceptions(true); // Security best practice
+        authProvider.setHideUserNotFoundExceptions(true);
         return authProvider;
     }
 
@@ -70,101 +63,44 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        // CSRF Token Handler for SPA
-        CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
-        requestHandler.setCsrfRequestAttributeName("_csrf");
-
         http
-                // CSRF Configuration
-                .csrf(csrf -> {
-                    if (csrfEnabled) {
-                        // Enable CSRF with Cookie-based tokens for SPA
-                        csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                                .csrfTokenRequestHandler(requestHandler)
-                                .ignoringRequestMatchers(
-                                        "/api/auth/login",
-                                        "/api/auth/register",
-                                        "/api/auth/refresh"
-                                ); // Exclude specific auth endpoints
-                    } else {
-                        // Disable CSRF for stateless JWT authentication
-                        csrf.disable();
-                    }
-                })
+            // CSRF Configuration - DISABLED for development
+            .csrf(csrf -> csrf.disable())
 
-                // CORS Configuration
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            // CORS Configuration - MUST come before other filters
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // Session Management - Stateless
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            // Session Management - Stateless
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                // Authorization Rules
-                .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
-                        .requestMatchers(
-                                "/api/auth/login",
-                                "/api/auth/register",
-                                "/api/auth/refresh",
-                                "/uploads/**",
-                                "/static/**",
-                                "/error",
-                                "/actuator/health",
-                                "/actuator/info"
-                        ).permitAll()
+            // Authorization Rules
+            .authorizeHttpRequests(auth -> auth
+                // Public endpoints
+                .requestMatchers(
+                    "/api/auth/login",
+                    "/api/auth/register",
+                    "/api/auth/refresh",
+                    "/uploads/**",
+                    "/static/**",
+                    "/error",
+                    "/actuator/health",
+                    "/actuator/info"
+                ).permitAll()
 
-                        // Admin endpoints
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                // Admin endpoints
+                .requestMatchers("/admin/**").hasRole("ADMIN")
 
-                        // All other requests require authentication
-                        .anyRequest().authenticated()
-                )
+                // All other requests require authentication
+                .anyRequest().authenticated()
+            )
 
-                // Authentication Provider
-                .authenticationProvider(authenticationProvider())
+            // Authentication Provider
+            .authenticationProvider(authenticationProvider())
 
-                // Add filters in correct order:
-                // 1. First add JWT filter before UsernamePasswordAuthenticationFilter
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                // 2. Then add Rate Limit filter before JWT filter
-                .addFilterBefore(rateLimitFilter, JwtAuthenticationFilter.class)
-
-                // Security Headers
-                .headers(headers -> headers
-                        // Content Security Policy
-                        .contentSecurityPolicy(csp ->
-                                csp.policyDirectives("default-src 'self'; " +
-                                        "script-src 'self' 'unsafe-inline'; " +
-                                        "style-src 'self' 'unsafe-inline'; " +
-                                        "img-src 'self' data: https:; " +
-                                        "font-src 'self' data:; " +
-                                        "connect-src 'self'"))
-
-                        // Frame Options - Prevent Clickjacking
-                        .frameOptions(frame -> frame.deny())
-
-                        // XSS Protection
-                        .xssProtection(xss -> xss
-                                .headerValue(XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK))
-
-                        // HSTS - Force HTTPS
-                        .httpStrictTransportSecurity(hsts -> hsts
-                                .includeSubDomains(true)
-                                .maxAgeInSeconds(31536000)) // 1 year
-
-                        // Prevent MIME Sniffing
-                        .contentTypeOptions(contentType -> {})
-
-                        // Referrer Policy
-                        .referrerPolicy(referrer ->
-                                referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
-
-                        // Permissions Policy
-                        .addHeaderWriter(new StaticHeadersWriter(
-                                "Permissions-Policy",
-                                "geolocation=(), microphone=(), camera=()"
-                        ))
-                );
+            // Add filters in correct order
+            .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -173,36 +109,27 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Parse allowed origins from application.properties
+        // CRITICAL: Use setAllowedOrigins for exact origins, not patterns
         List<String> origins = Arrays.asList(allowedOrigins.split(","));
-        configuration.setAllowedOriginPatterns(origins);
+        configuration.setAllowedOrigins(origins);  // CHANGED from setAllowedOriginPatterns
 
         // Allowed HTTP methods
         configuration.setAllowedMethods(Arrays.asList(
-                "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
+            "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
         ));
 
-        // Allowed headers
-        configuration.setAllowedHeaders(Arrays.asList(
-                "Authorization",
-                "Content-Type",
-                "X-Requested-With",
-                "Accept",
-                "Origin",
-                "Access-Control-Request-Method",
-                "Access-Control-Request-Headers",
-                "X-CSRF-TOKEN"
-        ));
+        // Allowed headers - be more permissive
+        configuration.setAllowedHeaders(Arrays.asList("*"));
 
-        // Exposed headers (so frontend can read them)
+        // Exposed headers
         configuration.setExposedHeaders(Arrays.asList(
-                "Authorization",
-                "X-CSRF-TOKEN",
-                "Access-Control-Allow-Origin",
-                "Access-Control-Allow-Credentials"
+            "Authorization",
+            "Set-Cookie",
+            "Access-Control-Allow-Origin",
+            "Access-Control-Allow-Credentials"
         ));
 
-        // Allow credentials (cookies, authorization headers)
+        // CRITICAL: Allow credentials (cookies)
         configuration.setAllowCredentials(true);
 
         // Cache preflight response for 1 hour

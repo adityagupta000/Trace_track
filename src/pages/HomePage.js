@@ -20,30 +20,48 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchHomeData();
-  }, [navigate]);
+  }, []);
 
   const fetchHomeData = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.DASHBOARD}`, {
         method: "GET",
-        credentials: "include", // Send cookies
+        credentials: "include", // CRITICAL: Send cookies
+        headers: {
+          'Accept': 'application/json',
+        },
       });
 
       if (!res.ok) {
-        navigate("/");
+        console.error(`Dashboard fetch failed: ${res.status} ${res.statusText}`);
+        
+        if (res.status === 401 || res.status === 403) {
+          toast.error("Please login to continue");
+          navigate("/");
+        } else if (res.status === 429) {
+          toast.error("Too many requests. Please wait a moment.");
+        } else {
+          toast.error("Failed to load dashboard");
+        }
         return;
       }
 
       const data = await res.json();
+      console.log("Dashboard data:", data); // Debug log
 
-      setName(data.user.name);
-      setRole(data.user.role);
-      setItems(data.items || []);
-      setClaims(data.claims || []);
-      setMessages(data.messages || []);
+      if (data.user) {
+        setName(data.user.name);
+        setRole(data.user.role);
+        setItems(data.items || []);
+        setClaims(data.claims || []);
+        setMessages(data.messages || []);
+      } else {
+        navigate("/");
+      }
     } catch (err) {
       console.error("Failed to fetch dashboard:", err);
-      navigate("/");
+      toast.error("Network error. Please check your connection.");
+      // Don't auto-navigate on network errors
     } finally {
       setLoading(false);
     }
@@ -51,7 +69,7 @@ export default function HomePage() {
 
   const handleFeedbackSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!feedbackText.trim()) {
       toast.error("Please enter your feedback");
       return;
@@ -72,9 +90,10 @@ export default function HomePage() {
     try {
       const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.FEEDBACK}`, {
         method: "POST",
-        credentials: "include", // Send cookies
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json",
         },
         body: JSON.stringify({ feedback: feedbackText.trim() }),
       });

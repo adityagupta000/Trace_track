@@ -44,18 +44,12 @@ public class CookieUtil {
     }
 
     /**
-     * Generic method to add cookie
+     * Generic method to add cookie with proper SameSite attribute
      */
-// In the addCookie method, update line 59-67:
     private void addCookie(HttpServletResponse response, String name, String value,
                            int maxAge, boolean httpOnly) {
-        Cookie cookie = new Cookie(name, value);
-        cookie.setPath("/");
-        cookie.setHttpOnly(httpOnly);
-        cookie.setMaxAge(maxAge);
-        cookie.setSecure(cookieSecure);
 
-        // SameSite attribute - build proper header
+        // Build cookie header manually to support SameSite
         StringBuilder cookieHeader = new StringBuilder();
         cookieHeader.append(name).append("=").append(value);
         cookieHeader.append("; Path=/");
@@ -69,11 +63,12 @@ public class CookieUtil {
             cookieHeader.append("; Secure");
         }
 
-        // SameSite - only add if specified
+        // Add SameSite attribute
         if (cookieSameSite != null && !cookieSameSite.isEmpty()) {
             cookieHeader.append("; SameSite=").append(cookieSameSite);
         }
 
+        // Set the cookie
         response.addHeader("Set-Cookie", cookieHeader.toString());
     }
 
@@ -109,13 +104,21 @@ public class CookieUtil {
      * Delete cookie
      */
     public void deleteCookie(HttpServletResponse response, String name) {
-        Cookie cookie = new Cookie(name, null);
-        cookie.setPath("/");
-        cookie.setHttpOnly(true);
-        cookie.setMaxAge(0);
-        cookie.setSecure(cookieSecure);
-        
-        response.addCookie(cookie);
+        StringBuilder cookieHeader = new StringBuilder();
+        cookieHeader.append(name).append("=");
+        cookieHeader.append("; Path=/");
+        cookieHeader.append("; Max-Age=0");
+        cookieHeader.append("; HttpOnly");
+
+        if (cookieSecure) {
+            cookieHeader.append("; Secure");
+        }
+
+        if (cookieSameSite != null && !cookieSameSite.isEmpty()) {
+            cookieHeader.append("; SameSite=").append(cookieSameSite);
+        }
+
+        response.addHeader("Set-Cookie", cookieHeader.toString());
     }
 
     /**

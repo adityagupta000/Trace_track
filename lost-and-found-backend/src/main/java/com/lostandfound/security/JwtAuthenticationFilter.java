@@ -33,8 +33,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         try {
-            // Try to get JWT from cookie first, then fall back to header
+            // CRITICAL: Try to get JWT from cookie FIRST
             String jwt = getJwtFromCookie(request);
+
+            // Fallback to Authorization header if no cookie
             if (!StringUtils.hasText(jwt)) {
                 jwt = getJwtFromHeader(request);
             }
@@ -49,6 +51,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 logger.debug("Set authentication for user: {}", userId);
+            } else {
+                logger.debug("No valid JWT token found for request: {}", request.getRequestURI());
             }
         } catch (Exception ex) {
             logger.error("Could not set user authentication in security context", ex);
@@ -58,14 +62,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Get JWT from cookie
+     * Get JWT from cookie (PRIMARY method)
      */
     private String getJwtFromCookie(HttpServletRequest request) {
         return cookieUtil.getAccessToken(request).orElse(null);
     }
 
     /**
-     * Get JWT from Authorization header (fallback for API clients)
+     * Get JWT from Authorization header (FALLBACK for API clients)
      */
     private String getJwtFromHeader(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");

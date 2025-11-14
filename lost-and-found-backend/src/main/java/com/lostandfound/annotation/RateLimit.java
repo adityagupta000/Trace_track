@@ -7,10 +7,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Custom annotation for method-level rate limiting
- * Usage: @RateLimit(type = RateLimitConfig.RateLimitType.AUTH)
- */
+
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface RateLimit {
