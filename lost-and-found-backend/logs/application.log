@@ -6922,3 +6922,6 @@ Caused by: java.lang.ClassNotFoundException: JwtAuthenticationFilter
 2025-11-14T09:00:26.259+05:30 DEBUG 20992 --- [lost-and-found-backend] [http-nio-8080-exec-3] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [application/json] and supported [application/json, application/*+json]
 2025-11-14T09:00:26.260+05:30 DEBUG 20992 --- [lost-and-found-backend] [http-nio-8080-exec-3] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [{feedback=[FeedbackResponse(id=1, userId=1, userName=Aman Gupta, feedbackText=alll goodad, submitted (truncated)...]
 2025-11-14T09:00:26.260+05:30 DEBUG 20992 --- [lost-and-found-backend] [http-nio-8080-exec-3] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2025-11-14T09:28:10.831+05:30  INFO 20992 --- [lost-and-found-backend] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2025-11-14T09:28:10.852+05:30  INFO 20992 --- [lost-and-found-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2025-11-14T09:28:10.859+05:30  INFO 20992 --- [lost-and-found-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.

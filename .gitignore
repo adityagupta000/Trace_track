@@ -17,6 +17,7 @@
 .env.development.local
 .env.test.local
 .env.production.local
+.env.example
 
 npm-debug.log*
 yarn-debug.log*
@@ -24,3 +25,5 @@ yarn-error.log*
 
 Lost_and_Found_Code_Export.pdf
 
+*.log
+*.log.*
